@@ -1,36 +1,67 @@
-from fastapi import APIRouter, Depends
+import token
+from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 from typing import List
 from models import User, Book, Rating
-from schemas import UserCreate
+from schemas import UserCreate, UserLogin
 from database import get_session
+from passlib.context import CryptContext
 
 router = APIRouter()
-#cadastrar um novo usuário
-@router.post("/users")
-async def create_user(item: UserCreate, session: Session = Depends(get_session)):
-    user = User(**item.dict())
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return {"message": "Usuário criado", "user_id": user.User_ID}
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-#mostrar os usuários cadastrados
+@router.post("/register")
+def register(user: UserCreate, session: Session = Depends(get_session)):
+    statement = select(User).where(User.username == user.username)
+    existing_user = session.exec(statement).first()
+
+    if existing_user:
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    db_user = User(
+        username=user.username,
+        password=pwd_context.hash(user.password)
+    )
+
+    session.add(db_user)
+    session.commit()
+
+    return {"message": "User created successfully"}
+
+@router.post("/login")
+def login(user: UserLogin, session: Session = Depends(get_session)):
+    statement = select(User).where(User.username == user.username)
+    existing_user = session.exec(statement).first()
+
+    if not existing_user or not pwd_context.verify(user.password, existing_user.password):
+        raise HTTPException(status_code=400, detail="Invalid username or password")
+
+    return {"message": "Login successful"}
+
+#mostrar TODOS os usuários cadastrados
 @router.get("/users", response_model=List[User])
 async def list_users(session: Session = Depends(get_session)):
     return session.exec(select(User)).all()
 
-#mostrar os livros que estão na biblioteca do usuário
-@router.get("/users/{user_id}")
-async def profile(user_id: int, session: Session = Depends(get_session)):
-    # primeiro seleciona os ISBNs avaliados pelo usuário
+#mostrar um usuário específico pelo ID
+# uma requisição para essa rota é "GET /users/{user_id}"
+
+@router.get("/users/{user_id}", response_model=User)
+def get_user(user_id: int, session: Session = Depends(get_session)):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(404, "Usuário não encontrado")
+    return user
+
+#mostrar os livros que foram avaliados por um usuário
+#exemplo de requisição: GET /users/{user_id}/books
+
+@router.get("/users/{user_id}/books", response_model=List[Book])
+def get_user_books(user_id: int, session: Session = Depends(get_session)):
     subquery = select(Rating.ISBN).where(Rating.User_ID == user_id)
-    
-    # depois busca os livros correspondentes
     statement = select(Book).where(Book.ISBN.in_(subquery))
-    results = session.exec(statement).all()
-    
-    return {"books": results}
+    return session.exec(statement).all()
+
 
 #atualizar dados do usuário
 @router.put("/users/{user_id}")

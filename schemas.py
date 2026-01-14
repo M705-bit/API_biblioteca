@@ -2,11 +2,12 @@ from typing import Optional
 from pydantic import BaseModel
 
 class UserCreate(BaseModel):
-    User_ID: int | None = None
-    Age: int
-    #username: str
-    #email: str
-    #hashed_password: str
+    username: str
+    password: str
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
 
 class BookCreate(BaseModel):
     ISBN: str 

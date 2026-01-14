@@ -18,7 +18,6 @@ def on_startup():
 async def read_item(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-# Inclui os routers
 app.include_router(users.router)
 app.include_router(books.router)
 app.include_router(ratings.router)
