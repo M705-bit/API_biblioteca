@@ -1,4 +1,4 @@
-# API Biblioteca
+# API Biblioteca 📚☕📑
 
 A RESTful API for library management built with **FastAPI** and **Python 3.11**, backed by a **SQLite** database and populated with real-world book, user, and rating datasets.
 
